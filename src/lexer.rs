@@ -3,12 +3,16 @@ use crate::token::{Token, TokenKind};
 pub struct Lexer {
     index: usize,
     chars: Vec<char>,
+    line_counter: usize,
+    column_counter: usize,
 }
 
 impl Lexer {
     pub fn from_string(input: &str) -> Self {
         Lexer {
             index: 0,
+            line_counter: 1,
+            column_counter: 1,
             chars: input.chars().collect(),
         }
     }
@@ -49,6 +53,7 @@ impl Lexer {
 
     fn skip_char(&mut self) {
         self.index += 1;
+        self.column_counter += 1;
     }
 
     fn match_char(&self, char: char) -> Option<&char> {
@@ -108,11 +113,17 @@ impl Lexer {
             self.skip_char();
             Some(token)
         } else {
-            panic!("Syntax error: Unknown character '{}'", char)
+            panic!(
+                "Syntax error: Unknown character '{}' at column {}, line {}",
+                char, self.column_counter, self.line_counter
+            )
         }
     }
 
     fn match_new_line(&mut self) -> Option<Token> {
+        self.line_counter += 1;
+        self.column_counter = 0;
+
         None
     }
 
