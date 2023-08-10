@@ -1,0 +1,36 @@
+{
+  "name": "shab-language-support",
+  "displayName": ".shab Language Support",
+  "description": "Syntax highlighting and language support for .shab files",
+  "version": "0.0.1",
+  "author": "szymmis",
+  "repository": "https://github.com/szymmis/.shab",
+  "engines": {
+    "vscode": "^1.81.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "shab",
+        "aliases": [
+          "Shab",
+          "shab"
+        ],
+        "extensions": [
+          ".shab"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "shab",
+        "scopeName": "source.shab",
+        "path": "./syntaxes/shab.tmLanguage.json"
+      }
+    ]
+  }
+}

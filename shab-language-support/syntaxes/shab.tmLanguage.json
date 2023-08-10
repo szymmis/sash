@@ -1,0 +1,46 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "shab",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#keywords" },
+    { "include": "#options" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#functions" },
+    { "include": "#variables" }
+  ],
+  "repository": {
+    "comments": {
+      "name": "comment",
+      "begin": "#",
+      "end": "\n"
+    },
+    "keywords": {
+      "name": "keyword",
+      "match": "(let|if|for)"
+    },
+    "options": {
+      "name": "constant.other",
+      "match": "--?[a-zA-Z0-9-]+"
+    },
+    "strings": {
+      "name": "string.quoted.double.shab",
+      "begin": "\"",
+      "end": "\""
+    },
+    "numbers": {
+      "name": "constant.numeric",
+      "match": "\\d+"
+    },
+    "functions": {
+      "name": "entity.name.function",
+      "match": "\\w+!?\\s*\\("
+    },
+    "variables": {
+      "name": "variable",
+      "match": "\\w+"
+    }
+  },
+  "scopeName": "source.shab"
+}
