@@ -1,0 +1,6 @@
+compress("logs.tar.gz", "Cargo.toml", "Cargo.lock")
+cat!("Cargo.toml").grep!("name").cut!(-d, " ", -f3-, --)
+ls_archive("logs.tar.gz")
+# let a = 5;
+# This is a comment
+tar!(-tf, "logs.tar.gz")
