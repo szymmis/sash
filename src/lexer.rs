@@ -29,14 +29,15 @@ impl Lexer {
     fn parse_char(&mut self) -> Option<Token> {
         match self.chars.get(self.index) {
             Some(char) => match char {
-                '(' | ')' | ',' | '.' => Some(self.consume_any_char().unwrap().into()),
                 '#' => self.match_comment(),
                 '"' => self.match_string(),
                 '`' => self.match_raw_string(),
                 '-' => self.match_option(),
                 '0'..='9' => self.match_number(),
                 'a'..='z' | 'A'..='Z' => self.match_identifier(),
-                _ => None,
+                ' ' | '\t' => self.match_whitespace(),
+                '\n' => self.match_new_line(),
+                _ => self.match_char_token(),
             },
             None => None,
         }
@@ -100,6 +101,25 @@ impl Lexer {
         lexeme
     }
 
+    fn match_char_token(&mut self) -> Option<Token> {
+        let char = self.get_char().cloned()?;
+
+        if let Some(token) = Token::from_char(char) {
+            self.skip_char();
+            Some(token)
+        } else {
+            panic!("Syntax error: Unknown character '{}'", char)
+        }
+    }
+
+    fn match_new_line(&mut self) -> Option<Token> {
+        None
+    }
+
+    fn match_whitespace(&mut self) -> Option<Token> {
+        None
+    }
+
     fn match_comment(&mut self) -> Option<Token> {
         self.consume_any_char();
 
@@ -118,7 +138,7 @@ impl Lexer {
 
         Some(Token {
             lexeme,
-            kind: match self.match_char('!') {
+            kind: match self.consume_char('!') {
                 Some(_) => TokenKind::Command,
                 None => TokenKind::Identifier,
             },

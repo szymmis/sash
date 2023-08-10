@@ -13,11 +13,14 @@ pub enum TokenKind {
     Option,
 }
 
-impl Token {
-    pub fn write(&self) -> String {
-        match self.kind {
-            TokenKind::String => format!("\"{}\"", self.lexeme),
-            _ => self.lexeme.to_owned(),
+impl TokenKind {
+    fn from_char(char: &char) -> Option<Self> {
+        match char {
+            '(' => Some(Self::LeftBracket),
+            ')' => Some(Self::RightBracket),
+            ',' => Some(Self::Coma),
+            '.' => Some(Self::Period),
+            _ => None,
         }
     }
 }
@@ -28,17 +31,21 @@ pub struct Token {
     pub kind: TokenKind,
 }
 
-impl Into<Token> for char {
-    fn into(self) -> Token {
-        Token {
-            lexeme: self.to_string(),
-            kind: match self {
-                '(' => TokenKind::LeftBracket,
-                ')' => TokenKind::RightBracket,
-                ',' => TokenKind::Coma,
-                '.' => TokenKind::Period,
-                _ => panic!("Token from char {} not implemented!", self),
-            },
+impl Token {
+    pub fn write(&self) -> String {
+        match self.kind {
+            TokenKind::String => format!("\"{}\"", self.lexeme),
+            _ => self.lexeme.to_owned(),
+        }
+    }
+
+    pub fn from_char(char: char) -> Option<Self> {
+        match TokenKind::from_char(&char) {
+            Some(kind) => Some(Token {
+                lexeme: char.to_string(),
+                kind,
+            }),
+            None => None,
         }
     }
 }
