@@ -1,7 +1,7 @@
-extern crate shab;
-use std::env;
+extern crate sash_lang;
+use sash_lang::Script;
 
-use shab::Script;
+use std::env;
 
 struct Args {
     input_filename: String,

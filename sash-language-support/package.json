@@ -1,0 +1,36 @@
+{
+  "name": "sash-language-support",
+  "displayName": "Sash Language Support",
+  "description": "Syntax highlighting and language support for .sash files",
+  "version": "0.0.1",
+  "author": "szymmis",
+  "repository": "https://github.com/szymmis/sash",
+  "engines": {
+    "vscode": "^1.81.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "sash",
+        "aliases": [
+          "Sane Shell",
+          "sash"
+        ],
+        "extensions": [
+          ".sash"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "sash",
+        "scopeName": "source.sash",
+        "path": "./syntaxes/sash.tmLanguage.json"
+      }
+    ]
+  }
+}

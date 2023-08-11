@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "shab",
+  "name": "sash",
   "patterns": [
     { "include": "#comments" },
     { "include": "#keywords" },
@@ -25,7 +25,7 @@
       "match": "--?[a-zA-Z0-9-]+"
     },
     "strings": {
-      "name": "string.quoted.double.shab",
+      "name": "string.quoted.double.sash",
       "begin": "\"",
       "end": "\""
     },
@@ -42,5 +42,5 @@
       "match": "\\w+"
     }
   },
-  "scopeName": "source.shab"
+  "scopeName": "source.sash"
 }
