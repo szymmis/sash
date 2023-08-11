@@ -17,19 +17,27 @@ impl Parser {
         let mut expressions = Vec::new();
 
         while self.index < self.tokens.len() {
-            match self.tokens.get(self.index).unwrap().kind {
-                TokenKind::Comment => self.skip_token(),
-                TokenKind::Identifier | TokenKind::Command => {
-                    expressions.push(Expression::FnChain(self.match_fn_chain()))
-                }
-                _ => todo!(
-                    "Expression from {:#?} not implemented",
-                    self.tokens.get(self.index).unwrap()
-                ),
-            };
+            match self.seek_expression() {
+                Some(expression) => expressions.push(expression),
+                None => self.skip_token(),
+            }
         }
 
         expressions
+    }
+
+    fn seek_expression(&mut self) -> Option<Expression> {
+        match self.tokens.get(self.index).unwrap().kind {
+            TokenKind::Identifier | TokenKind::Command => self.match_fn_chain(),
+            TokenKind::Comment => None,
+            _ => {
+                println!(
+                    "Unknown expression: {:#?}",
+                    self.tokens.get(self.index).unwrap()
+                );
+                None
+            }
+        }
     }
 
     fn get_token(&self) -> Option<&Token> {
@@ -69,7 +77,7 @@ impl Parser {
         None
     }
 
-    fn match_fn_chain(&mut self) -> FnChain {
+    fn match_fn_chain(&mut self) -> Option<Expression> {
         let mut invocations = Vec::new();
 
         loop {
@@ -79,33 +87,18 @@ impl Parser {
             }
         }
 
-        FnChain { invocations }
+        Some(Expression::FnChain(FnChain { invocations }))
     }
 
     fn match_fn_call(&mut self) -> Expression {
-        let name = match self.consume_token(TokenKind::Identifier) {
-            Some(name) => name,
-            None => self
-                .consume_token(TokenKind::Command)
-                .expect("Missing identifier in function call"),
-        };
+        let name = self
+            .consume_token_of_multiple_kinds(&[TokenKind::Identifier, TokenKind::Command])
+            .expect("Missing function identifier");
 
         self.consume_token(TokenKind::LeftBracket)
             .expect("Missing ( after identifier ");
 
-        let mut args = Vec::new();
-
-        loop {
-            match self.match_fn_argument() {
-                Some(arg) => {
-                    args.push(arg);
-                    if let None = self.consume_token(TokenKind::Coma) {
-                        break;
-                    }
-                }
-                None => break,
-            }
-        }
+        let args = self.match_fn_arguments();
 
         self.consume_token(TokenKind::RightBracket)
             .expect("Missing ) after parameters list");
@@ -117,12 +110,25 @@ impl Parser {
         }
     }
 
-    fn match_fn_argument(&mut self) -> Option<Token> {
-        self.consume_token_of_multiple_kinds(&[
-            TokenKind::String,
-            TokenKind::RawString,
-            TokenKind::Number,
-            TokenKind::Option,
-        ])
+    fn match_fn_arguments(&mut self) -> Vec<Token> {
+        let mut args = Vec::new();
+
+        loop {
+            if let Some(arg) = self.consume_token_of_multiple_kinds(&[
+                TokenKind::String,
+                TokenKind::RawString,
+                TokenKind::Number,
+                TokenKind::Option,
+            ]) {
+                args.push(arg);
+                if let None = self.consume_token(TokenKind::Coma) {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        args
     }
 }
