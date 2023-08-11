@@ -21,7 +21,7 @@ impl Lexer {
         let mut tokens = Vec::new();
 
         while self.index < self.chars.len() {
-            match self.parse_char() {
+            match self.seek_token() {
                 Some(token) => tokens.push(token),
                 None => self.skip_char(),
             }
@@ -30,20 +30,17 @@ impl Lexer {
         tokens
     }
 
-    fn parse_char(&mut self) -> Option<Token> {
-        match self.chars.get(self.index) {
-            Some(char) => match char {
-                '#' => self.match_comment(),
-                '"' => self.match_string(),
-                '`' => self.match_raw_string(),
-                '-' => self.match_option(),
-                '0'..='9' => self.match_number(),
-                'a'..='z' | 'A'..='Z' => self.match_identifier(),
-                ' ' | '\t' => self.match_whitespace(),
-                '\n' => self.match_new_line(),
-                _ => self.match_char_token(),
-            },
-            None => None,
+    fn seek_token(&mut self) -> Option<Token> {
+        match self.get_char().unwrap() {
+            '#' => self.match_comment(),
+            '"' => self.match_string(),
+            '`' => self.match_raw_string(),
+            '-' => self.match_option(),
+            '0'..='9' => self.match_number(),
+            'a'..='z' | 'A'..='Z' => self.match_identifier(),
+            ' ' | '\t' => self.match_whitespace(),
+            '\n' => self.match_new_line(),
+            _ => self.match_char_token(),
         }
     }
 
