@@ -2,30 +2,44 @@ use std::fmt::Write;
 
 use crate::token::Token;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expression {
+    Token(TokenExpr),
+    Arithmetic(ArithmeticExpr),
+    Parenthesis(ParenthesisExpr),
     FnCall(FnCall),
     CmdCall(CmdCall),
     FnChain(FnChain),
+    VarAssignment(VarAssignmentExpr),
+    VarDeclaration(VarDeclarationExpr),
 }
 
 impl Expression {
     pub fn write(&self) -> String {
         match self {
-            Expression::FnCall(fn_call) => fn_call.write(),
-            Expression::CmdCall(cmd_call) => cmd_call.write(),
-            Expression::FnChain(fn_chain) => fn_chain.write(),
+            Self::Token(expr) => format!("{}", expr.value.write()),
+            Self::Arithmetic(expr) => expr.write(),
+            Self::Parenthesis(expr) => expr.write(),
+            Self::FnCall(fn_call) => fn_call.write(),
+            Self::CmdCall(cmd_call) => cmd_call.write(),
+            Self::FnChain(fn_chain) => fn_chain.write(),
+            Self::VarAssignment(expr) => expr.write(),
+            Self::VarDeclaration(expr) => expr.write(),
         }
     }
 }
 
-#[derive(Debug)]
-pub struct FnCall {
-    pub name: Token,
-    pub args: Vec<Token>,
+trait Expr {
+    fn write(&self) -> String;
 }
 
-impl FnCall {
+#[derive(Debug, Clone)]
+pub struct FnCall {
+    pub name: Token,
+    pub args: Vec<Box<Expression>>,
+}
+
+impl Expr for FnCall {
     fn write(&self) -> String {
         let args = get_args_as_string(&self.args);
 
@@ -39,24 +53,24 @@ impl FnCall {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CmdCall {
     pub name: Token,
-    pub args: Vec<Token>,
+    pub args: Vec<Box<Expression>>,
 }
 
-impl CmdCall {
+impl Expr for CmdCall {
     fn write(&self) -> String {
         format!("{} {}", self.name.lexeme, get_args_as_string(&self.args))
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FnChain {
     pub invocations: Vec<Expression>,
 }
 
-impl FnChain {
+impl Expr for FnChain {
     fn write(&self) -> String {
         let mut output = String::new();
 
@@ -72,7 +86,7 @@ impl FnChain {
     }
 }
 
-fn get_args_as_string(args: &Vec<Token>) -> String {
+fn get_args_as_string(args: &Vec<Box<Expression>>) -> String {
     let mut arguments_string = String::new();
 
     let mut iter = args.iter().peekable();
@@ -88,4 +102,77 @@ fn get_args_as_string(args: &Vec<Token>) -> String {
     }
 
     arguments_string
+}
+
+#[derive(Debug, Clone)]
+pub struct TokenExpr {
+    pub value: Token,
+}
+
+#[derive(Debug, Clone)]
+pub struct ArithmeticExpr {
+    pub lhs: Box<Expression>,
+    pub operator: Token,
+    pub rhs: Box<Expression>,
+}
+
+impl ArithmeticExpr {
+    fn eval(&self) -> String {
+        format!(
+            "{} {} {}",
+            self.lhs.write(),
+            self.operator.write(),
+            match *self.rhs.clone() {
+                Expression::Arithmetic(rhs) => rhs.eval(),
+                _ => self.rhs.write(),
+            }
+        )
+    }
+}
+
+impl Expr for ArithmeticExpr {
+    fn write(&self) -> String {
+        format!("$(({}))", self.eval())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct VarAssignmentExpr {
+    pub name: Token,
+    pub value: Box<Expression>,
+}
+
+impl Expr for VarAssignmentExpr {
+    fn write(&self) -> String {
+        format!("{}={}", self.name.lexeme, self.value.write())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct VarDeclarationExpr {
+    pub name: Token,
+    pub value: Box<Expression>,
+}
+
+impl Expr for VarDeclarationExpr {
+    fn write(&self) -> String {
+        format!("{}={}", self.name.lexeme, self.value.write())
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ParenthesisExpr {
+    pub value: Box<Expression>,
+}
+
+impl Expr for ParenthesisExpr {
+    fn write(&self) -> String {
+        format!(
+            "({})",
+            match *self.value.clone() {
+                Expression::Arithmetic(rhs) => rhs.eval(),
+                _ => self.value.write(),
+            }
+        )
+    }
 }

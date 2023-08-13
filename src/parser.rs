@@ -1,5 +1,5 @@
 use crate::{
-    expression::{CmdCall, Expression, FnCall, FnChain},
+    expression::*,
     token::{Token, TokenKind},
 };
 
@@ -28,7 +28,9 @@ impl Parser {
 
     fn seek_expression(&mut self) -> Option<Expression> {
         match self.tokens.get(self.index).unwrap().kind {
-            TokenKind::Identifier | TokenKind::Command => self.match_fn_chain(),
+            TokenKind::Identifier => self.match_identifier(),
+            TokenKind::Command => self.match_fn_chain(),
+            TokenKind::Let => self.match_var_declaration(),
             TokenKind::Comment => None,
             _ => {
                 println!(
@@ -56,6 +58,15 @@ impl Parser {
         }
     }
 
+    fn peek_token(&self, kind: TokenKind) -> Option<&Token> {
+        let token = self.tokens.get(self.index + 1)?;
+        if token.kind == kind {
+            Some(token)
+        } else {
+            None
+        }
+    }
+
     fn consume_token(&mut self, kind: TokenKind) -> Option<Token> {
         match self.match_token(kind) {
             Some(token) => {
@@ -75,6 +86,90 @@ impl Parser {
         }
 
         None
+    }
+
+    fn match_value_expr(&mut self) -> Option<Expression> {
+        let value =
+            self.consume_token_of_multiple_kinds(&[TokenKind::Number, TokenKind::Identifier])?;
+        Some(Expression::Token(TokenExpr { value }))
+    }
+
+    fn match_arithmetic_expr(&mut self) -> Option<Expression> {
+        let lhs = self.match_value_expr().or_else(|| {
+            self.consume_token(TokenKind::LeftBracket);
+
+            match self.match_arithmetic_expr().unwrap() {
+                Expression::Token(value) => Some(Expression::Token(value)),
+                value => {
+                    self.consume_token(TokenKind::RightBracket).unwrap();
+                    Some(Expression::Parenthesis(ParenthesisExpr {
+                        value: Box::new(value),
+                    }))
+                }
+            }
+        })?;
+
+        let operator = self.consume_token_of_multiple_kinds(&[
+            TokenKind::Plus,
+            TokenKind::Minus,
+            TokenKind::Asterisk,
+            TokenKind::Slash,
+        ]);
+
+        if operator.is_none() {
+            return Some(lhs);
+        }
+
+        let operator = operator.unwrap();
+
+        match self.match_arithmetic_expr() {
+            Some(rhs) => Some(Expression::Arithmetic(ArithmeticExpr {
+                lhs: Box::new(lhs),
+                operator,
+                rhs: Box::new(rhs),
+            })),
+            None => panic!(
+                "Syntax error: Expected value after operator {}",
+                operator.write()
+            ),
+        }
+    }
+
+    fn match_var_assignment(&mut self) -> Option<Expression> {
+        let name = self.consume_token(TokenKind::Identifier)?;
+        self.consume_token(TokenKind::Equal);
+
+        let value = self
+            .match_arithmetic_expr()
+            .expect("Expected expression after let _ =");
+
+        Some(Expression::VarAssignment(VarAssignmentExpr {
+            name,
+            value: Box::new(value),
+        }))
+    }
+
+    fn match_var_declaration(&mut self) -> Option<Expression> {
+        self.consume_token(TokenKind::Let);
+        let assignment = self.match_var_assignment().unwrap();
+
+        match assignment {
+            Expression::VarAssignment(VarAssignmentExpr { name, value }) => {
+                Some(Expression::VarDeclaration(VarDeclarationExpr {
+                    name,
+                    value,
+                }))
+            }
+            _ => panic!(),
+        }
+    }
+
+    fn match_identifier(&mut self) -> Option<Expression> {
+        if self.peek_token(TokenKind::Equal).is_some() {
+            self.match_var_assignment()
+        } else {
+            self.match_fn_chain()
+        }
     }
 
     fn match_fn_chain(&mut self) -> Option<Expression> {
@@ -110,21 +205,24 @@ impl Parser {
         }
     }
 
-    fn match_fn_arguments(&mut self) -> Vec<Token> {
+    fn match_fn_arguments(&mut self) -> Vec<Box<Expression>> {
         let mut args = Vec::new();
 
         loop {
             if let Some(arg) = self.consume_token_of_multiple_kinds(&[
                 TokenKind::String,
                 TokenKind::RawString,
-                TokenKind::Number,
                 TokenKind::Option,
             ]) {
-                args.push(arg);
-                if let None = self.consume_token(TokenKind::Coma) {
-                    break;
-                }
+                args.push(Box::new(Expression::Token(TokenExpr { value: arg })));
             } else {
+                match self.match_arithmetic_expr() {
+                    Some(expr) => args.push(Box::new(expr)),
+                    None => break,
+                }
+            }
+
+            if let None = self.consume_token(TokenKind::Coma) {
                 break;
             }
         }

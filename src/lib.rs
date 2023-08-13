@@ -26,8 +26,12 @@ impl Script {
         let mut lexer = Lexer::from_string(input.as_str());
         let tokens = lexer.parse();
 
+        dbg!(&tokens);
+
         let mut parser = Parser::from_tokens(tokens.clone());
         let expressions = parser.parse();
+
+        dbg!(&expressions);
 
         Script {
             tokens,

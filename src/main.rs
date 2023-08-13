@@ -16,7 +16,6 @@ fn main() {
     match args.output_filename {
         Some(path) => code.write_file(&path),
         None => {
-            code.debug();
             print!("------ generated code ------\n{}", code.get_code());
             println!("--------- output ----------");
             code.interpret();

@@ -104,16 +104,27 @@ impl Lexer {
     }
 
     fn match_char_token(&mut self) -> Option<Token> {
-        let char = self.get_char().cloned()?;
-
-        if let Some(token) = Token::from_char(char) {
-            self.skip_char();
-            Some(token)
-        } else {
-            panic!(
-                "Syntax error: Unknown character '{}' at column {}, line {}",
-                char, self.column_counter, self.line_counter
-            )
+        match self.consume_any_char()? {
+            '=' => {
+                if self.consume_char('=').is_some() {
+                    Some(Token {
+                        lexeme: "==".into(),
+                        kind: TokenKind::EqualEqual,
+                    })
+                } else {
+                    Some(Token {
+                        lexeme: '='.into(),
+                        kind: TokenKind::Equal,
+                    })
+                }
+            }
+            char => match Token::from_char(char) {
+                Some(token) => Some(token),
+                None => panic!(
+                    "Syntax error: Unknown character '{}' at column {}, line {}",
+                    char, self.column_counter, self.line_counter
+                ),
+            },
         }
     }
 
@@ -144,13 +155,13 @@ impl Lexer {
             .consume_lexeme_until(|char| char.is_alphanumeric() || *char == '_')
             .unwrap();
 
-        Some(Token {
+        Token::from_keyword(&lexeme).or(Some(Token {
             lexeme,
             kind: match self.consume_char('!') {
                 Some(_) => TokenKind::Command,
                 None => TokenKind::Identifier,
             },
-        })
+        }))
     }
 
     fn match_string(&mut self) -> Option<Token> {
@@ -191,9 +202,16 @@ impl Lexer {
             .consume_lexeme_until(|char| char.is_alphanumeric() || *char == '-')
             .expect("Cannot parse option lexeme");
 
-        Some(Token {
-            lexeme,
-            kind: TokenKind::Option,
-        })
+        if lexeme == "-" {
+            Some(Token {
+                lexeme: '-'.into(),
+                kind: TokenKind::Minus,
+            })
+        } else {
+            Some(Token {
+                lexeme,
+                kind: TokenKind::Option,
+            })
+        }
     }
 }
