@@ -16,6 +16,7 @@ pub enum Expression {
     IfStatement(IfStatementExpr),
     ElifStatement(ElifStatementExpr),
     ElseStatement(ElseStatementExpr),
+    WhileStatement(WhileStatementExpr),
 }
 
 impl Expression {
@@ -33,6 +34,7 @@ impl Expression {
             Self::IfStatement(expr) => expr.write(),
             Self::ElifStatement(expr) => expr.write(),
             Self::ElseStatement(expr) => expr.write(),
+            Self::WhileStatement(expr) => expr.write(),
         }
     }
 }
@@ -282,6 +284,26 @@ impl Expr for ElseStatementExpr {
             "".into()
         } else {
             format!("else\n{}fi", write_formatted_expressions(&self.body))
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct WhileStatementExpr {
+    pub condition: Box<Expression>,
+    pub body: Vec<Box<Expression>>,
+}
+
+impl Expr for WhileStatementExpr {
+    fn write(&self) -> String {
+        if self.body.len() == 0 {
+            "".into()
+        } else {
+            format!(
+                "while {}\ndo\n{}done",
+                self.condition.write(),
+                write_formatted_expressions(&self.body),
+            )
         }
     }
 }

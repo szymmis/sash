@@ -33,6 +33,7 @@ impl Parser {
             TokenKind::Let => self.match_var_declaration(),
             TokenKind::If => self.match_if_statement(),
             TokenKind::Else => self.match_else_if_statement(),
+            TokenKind::While => self.match_while_statement(),
             TokenKind::Comment => None,
             _ => {
                 println!(
@@ -161,6 +162,7 @@ impl Parser {
 
     fn match_if_statement(&mut self) -> Option<Expression> {
         self.consume_token(TokenKind::If)?;
+
         self.consume_token(TokenKind::LeftParen)
             .expect("Expected ( after if keyword");
 
@@ -227,6 +229,38 @@ impl Parser {
                 Some(Expression::ElseStatement(ElseStatementExpr { body }))
             }
         }
+    }
+
+    fn match_while_statement(&mut self) -> Option<Expression> {
+        self.consume_token(TokenKind::While)?;
+
+        self.consume_token(TokenKind::LeftParen)
+            .expect("Expected ( after for keyword");
+
+        let condition = self.match_conditional_expr().unwrap();
+
+        self.consume_token(TokenKind::RightParen)
+            .expect("Expected )");
+
+        self.consume_token(TokenKind::LeftBracket)
+            .expect("Expected { after while (...) keyword");
+
+        let mut body = Vec::new();
+
+        loop {
+            match self.get_token().unwrap().kind {
+                TokenKind::RightBracket => break,
+                _ => body.push(Box::new(self.seek_expression().unwrap())),
+            }
+        }
+
+        self.consume_token(TokenKind::RightBracket)
+            .expect("Expected }");
+
+        Some(Expression::WhileStatement(WhileStatementExpr {
+            condition: Box::new(condition),
+            body,
+        }))
     }
 
     fn match_var_assignment(&mut self) -> Option<Expression> {

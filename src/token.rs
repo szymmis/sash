@@ -2,6 +2,7 @@
 pub enum TokenKind {
     Let,
     If,
+    While,
     Else,
     Equal,
     EqualEqual,
@@ -52,6 +53,7 @@ impl TokenKind {
             "let" => Some(Self::Let),
             "if" => Some(Self::If),
             "else" => Some(Self::Else),
+            "while" => Some(Self::While),
             _ => None,
         }
     }
