@@ -1,8 +1,16 @@
 #[derive(Debug, PartialEq, Clone)]
 pub enum TokenKind {
     Let,
+    If,
+    Else,
     Equal,
     EqualEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+    Not,
+    NotEqual,
     Plus,
     Minus,
     Asterisk,
@@ -13,6 +21,8 @@ pub enum TokenKind {
     String,
     RawString,
     Number,
+    LeftParen,
+    RightParen,
     LeftBracket,
     RightBracket,
     Coma,
@@ -23,8 +33,10 @@ pub enum TokenKind {
 impl TokenKind {
     fn from_char(char: &char) -> Option<Self> {
         match char {
-            '(' => Some(Self::LeftBracket),
-            ')' => Some(Self::RightBracket),
+            '(' => Some(Self::LeftParen),
+            ')' => Some(Self::RightParen),
+            '{' => Some(Self::LeftBracket),
+            '}' => Some(Self::RightBracket),
             ',' => Some(Self::Coma),
             '.' => Some(Self::Period),
             '+' => Some(Self::Plus),
@@ -38,6 +50,8 @@ impl TokenKind {
     fn from_keyword(str: &str) -> Option<Self> {
         match str {
             "let" => Some(Self::Let),
+            "if" => Some(Self::If),
+            "else" => Some(Self::Else),
             _ => None,
         }
     }
@@ -54,6 +68,12 @@ impl Token {
         match self.kind {
             TokenKind::String => format!("\"{}\"", self.lexeme),
             TokenKind::Identifier => format!("${}", self.lexeme),
+            TokenKind::Less => "-lt".into(),
+            TokenKind::LessEqual => "-lte".into(),
+            TokenKind::Greater => "-gt".into(),
+            TokenKind::GreaterEqual => "-gte".into(),
+            TokenKind::EqualEqual => "-eq".into(),
+            TokenKind::NotEqual => "-ne".into(),
             _ => self.lexeme.to_owned(),
         }
     }

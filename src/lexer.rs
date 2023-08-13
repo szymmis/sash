@@ -118,6 +118,45 @@ impl Lexer {
                     })
                 }
             }
+            '<' => {
+                if self.consume_char('=').is_some() {
+                    Some(Token {
+                        lexeme: "<=".into(),
+                        kind: TokenKind::LessEqual,
+                    })
+                } else {
+                    Some(Token {
+                        lexeme: '<'.into(),
+                        kind: TokenKind::Less,
+                    })
+                }
+            }
+            '>' => {
+                if self.consume_char('=').is_some() {
+                    Some(Token {
+                        lexeme: ">=".into(),
+                        kind: TokenKind::GreaterEqual,
+                    })
+                } else {
+                    Some(Token {
+                        lexeme: '>'.into(),
+                        kind: TokenKind::Greater,
+                    })
+                }
+            }
+            '!' => {
+                if self.consume_char('=').is_some() {
+                    Some(Token {
+                        lexeme: "!=".into(),
+                        kind: TokenKind::NotEqual,
+                    })
+                } else {
+                    Some(Token {
+                        lexeme: '!'.into(),
+                        kind: TokenKind::Not,
+                    })
+                }
+            }
             char => match Token::from_char(char) {
                 Some(token) => Some(token),
                 None => panic!(

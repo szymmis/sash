@@ -7,11 +7,15 @@ pub enum Expression {
     Token(TokenExpr),
     Arithmetic(ArithmeticExpr),
     Parenthesis(ParenthesisExpr),
+    Condition(ConditionExpr),
     FnCall(FnCall),
     CmdCall(CmdCall),
     FnChain(FnChain),
     VarAssignment(VarAssignmentExpr),
     VarDeclaration(VarDeclarationExpr),
+    IfStatement(IfStatementExpr),
+    ElifStatement(ElifStatementExpr),
+    ElseStatement(ElseStatementExpr),
 }
 
 impl Expression {
@@ -20,11 +24,15 @@ impl Expression {
             Self::Token(expr) => format!("{}", expr.value.write()),
             Self::Arithmetic(expr) => expr.write(),
             Self::Parenthesis(expr) => expr.write(),
+            Self::Condition(expr) => expr.write(),
             Self::FnCall(fn_call) => fn_call.write(),
             Self::CmdCall(cmd_call) => cmd_call.write(),
             Self::FnChain(fn_chain) => fn_chain.write(),
             Self::VarAssignment(expr) => expr.write(),
             Self::VarDeclaration(expr) => expr.write(),
+            Self::IfStatement(expr) => expr.write(),
+            Self::ElifStatement(expr) => expr.write(),
+            Self::ElseStatement(expr) => expr.write(),
         }
     }
 }
@@ -48,7 +56,7 @@ impl Expr for FnCall {
             "compress" => format!("tar -caf {}", args),
             "decompress" => format!("tar -xf {}", args),
             "ls_archive" => format!("tar -tvf {}", args),
-            _ => todo!(),
+            _ => panic!("Build-in function \"{}\" not supported!", self.name.lexeme),
         }
     }
 }
@@ -174,5 +182,106 @@ impl Expr for ParenthesisExpr {
                 _ => self.value.write(),
             }
         )
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ConditionExpr {
+    pub lhs: Box<Expression>,
+    pub operator: Token,
+    pub rhs: Box<Expression>,
+}
+
+impl Expr for ConditionExpr {
+    fn write(&self) -> String {
+        format!(
+            "[ {} {} {} ]",
+            self.lhs.write(),
+            self.operator.write(),
+            self.rhs.write()
+        )
+    }
+}
+
+fn write_formatted_expressions(expressions: &Vec<Box<Expression>>) -> String {
+    let mut output = String::new();
+
+    for expr in expressions {
+        let lines: Vec<String> = expr
+            .write()
+            .split('\n')
+            .map(|line| format!("    {}\n", line))
+            .collect();
+
+        let lines = lines.join("");
+
+        output.write_str(&lines).unwrap();
+    }
+
+    output
+}
+
+#[derive(Debug, Clone)]
+pub struct IfStatementExpr {
+    pub condition: Box<Expression>,
+    pub body: Vec<Box<Expression>>,
+    pub branching: Option<Box<Expression>>,
+}
+
+impl Expr for IfStatementExpr {
+    fn write(&self) -> String {
+        if self.body.len() == 0 {
+            "".into()
+        } else {
+            format!(
+                "if {}; then\n{}{}",
+                self.condition.write(),
+                write_formatted_expressions(&self.body),
+                match &self.branching {
+                    Some(branching) => branching.write(),
+                    None => "fi".into(),
+                }
+            )
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ElifStatementExpr {
+    pub condition: Box<Expression>,
+    pub body: Vec<Box<Expression>>,
+    pub branching: Option<Box<Expression>>,
+}
+
+impl Expr for ElifStatementExpr {
+    fn write(&self) -> String {
+        if self.body.len() == 0 {
+            "".into()
+        } else {
+            format!(
+                "elif {}; then\n{}{}",
+                self.condition.write(),
+                write_formatted_expressions(&self.body),
+                match &self.branching {
+                    Some(branching) => branching.write(),
+                    None => "fi".into(),
+                }
+            )
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ElseStatementExpr {
+    pub body: Vec<Box<Expression>>,
+}
+
+impl Expr for ElseStatementExpr {
+    fn write(&self) -> String {
+        if self.body.len() == 0 {
+            "".into()
+        } else {
+            format!("else\n{}fi", write_formatted_expressions(&self.body))
+        }
     }
 }
