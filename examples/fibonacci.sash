@@ -1,0 +1,15 @@
+read!(`-p "N = " N`)
+
+let a = 0
+let b = 1
+let i = 0
+
+while (i < N) {
+    let temp = b
+    b = a + b
+    a = temp
+
+    i = i + 1
+}
+
+print("fibb($N) = $a") 
