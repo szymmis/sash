@@ -22,7 +22,7 @@ pub enum Expression {
 impl Expression {
     pub fn write(&self) -> String {
         match self {
-            Self::Token(expr) => format!("{}", expr.value.write()),
+            Self::Token(expr) => expr.value.write().to_string(),
             Self::Arithmetic(expr) => expr.write(),
             Self::Parenthesis(expr) => expr.write(),
             Self::Condition(expr) => expr.write(),
@@ -46,7 +46,7 @@ trait Expr {
 #[derive(Debug, Clone)]
 pub struct FnCall {
     pub name: Token,
-    pub args: Vec<Box<Expression>>,
+    pub args: Vec<Expression>,
 }
 
 impl Expr for FnCall {
@@ -54,10 +54,10 @@ impl Expr for FnCall {
         let args = get_args_as_string(&self.args);
 
         match self.name.lexeme.as_str() {
-            "print" => format!("echo {}", args),
-            "compress" => format!("tar -caf {}", args),
-            "decompress" => format!("tar -xf {}", args),
-            "ls_archive" => format!("tar -tvf {}", args),
+            "print" => format!("echo {args}"),
+            "compress" => format!("tar -caf {args}"),
+            "decompress" => format!("tar -xf {args}"),
+            "ls_archive" => format!("tar -tvf {args}"),
             _ => panic!("Build-in function \"{}\" not supported!", self.name.lexeme),
         }
     }
@@ -66,7 +66,7 @@ impl Expr for FnCall {
 #[derive(Debug, Clone)]
 pub struct CmdCall {
     pub name: Token,
-    pub args: Vec<Box<Expression>>,
+    pub args: Vec<Expression>,
 }
 
 impl Expr for CmdCall {
@@ -96,15 +96,13 @@ impl Expr for FnChain {
     }
 }
 
-fn get_args_as_string(args: &Vec<Box<Expression>>) -> String {
+fn get_args_as_string(args: &[Expression]) -> String {
     let mut arguments_string = String::new();
 
     let mut iter = args.iter().peekable();
 
     while let Some(arg) = iter.next() {
-        arguments_string
-            .write_str(format!("{}", arg.write()).as_str())
-            .unwrap();
+        arguments_string.write_str(&arg.write()).unwrap();
 
         if iter.peek().is_some() {
             arguments_string.write_str(" ").unwrap();
@@ -205,14 +203,14 @@ impl Expr for ConditionExpr {
     }
 }
 
-fn write_formatted_expressions(expressions: &Vec<Box<Expression>>) -> String {
+fn write_formatted_expressions(expressions: &[Expression]) -> String {
     let mut output = String::new();
 
     for expr in expressions {
         let lines: Vec<String> = expr
             .write()
             .split('\n')
-            .map(|line| format!("    {}\n", line))
+            .map(|line| format!("    {line}\n"))
             .collect();
 
         let lines = lines.join("");
@@ -226,14 +224,14 @@ fn write_formatted_expressions(expressions: &Vec<Box<Expression>>) -> String {
 #[derive(Debug, Clone)]
 pub struct IfStatementExpr {
     pub condition: Box<Expression>,
-    pub body: Vec<Box<Expression>>,
+    pub body: Vec<Expression>,
     pub branching: Option<Box<Expression>>,
 }
 
 impl Expr for IfStatementExpr {
     fn write(&self) -> String {
-        if self.body.len() == 0 {
-            "".into()
+        if self.body.is_empty() {
+            String::new()
         } else {
             format!(
                 "if {}; then\n{}{}",
@@ -251,14 +249,14 @@ impl Expr for IfStatementExpr {
 #[derive(Debug, Clone)]
 pub struct ElifStatementExpr {
     pub condition: Box<Expression>,
-    pub body: Vec<Box<Expression>>,
+    pub body: Vec<Expression>,
     pub branching: Option<Box<Expression>>,
 }
 
 impl Expr for ElifStatementExpr {
     fn write(&self) -> String {
-        if self.body.len() == 0 {
-            "".into()
+        if self.body.is_empty() {
+            String::new()
         } else {
             format!(
                 "elif {}; then\n{}{}",
@@ -275,13 +273,13 @@ impl Expr for ElifStatementExpr {
 
 #[derive(Debug, Clone)]
 pub struct ElseStatementExpr {
-    pub body: Vec<Box<Expression>>,
+    pub body: Vec<Expression>,
 }
 
 impl Expr for ElseStatementExpr {
     fn write(&self) -> String {
-        if self.body.len() == 0 {
-            "".into()
+        if self.body.is_empty() {
+            String::new()
         } else {
             format!("else\n{}fi", write_formatted_expressions(&self.body))
         }
@@ -291,13 +289,13 @@ impl Expr for ElseStatementExpr {
 #[derive(Debug, Clone)]
 pub struct WhileStatementExpr {
     pub condition: Box<Expression>,
-    pub body: Vec<Box<Expression>>,
+    pub body: Vec<Expression>,
 }
 
 impl Expr for WhileStatementExpr {
     fn write(&self) -> String {
-        if self.body.len() == 0 {
-            "".into()
+        if self.body.is_empty() {
+            String::new()
         } else {
             format!(
                 "while {}\ndo\n{}done",

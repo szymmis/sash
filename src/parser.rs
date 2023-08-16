@@ -1,6 +1,7 @@
+#[allow(clippy::wildcard_imports)]
 use crate::{
     expression::*,
-    token::{Token, TokenKind},
+    token::{Kind, Token},
 };
 
 pub struct Parser {
@@ -8,6 +9,7 @@ pub struct Parser {
     tokens: Vec<Token>,
 }
 
+#[allow(clippy::unnecessary_wraps)]
 impl Parser {
     pub fn from_tokens(tokens: Vec<Token>) -> Self {
         Parser { index: 0, tokens }
@@ -28,13 +30,13 @@ impl Parser {
 
     fn seek_expression(&mut self) -> Option<Expression> {
         match self.tokens.get(self.index).unwrap().kind {
-            TokenKind::Identifier => self.match_identifier(),
-            TokenKind::Command => self.match_fn_chain(),
-            TokenKind::Let => self.match_var_declaration(),
-            TokenKind::If => self.match_if_statement(),
-            TokenKind::Else => self.match_else_if_statement(),
-            TokenKind::While => self.match_while_statement(),
-            TokenKind::Comment => None,
+            Kind::Identifier => self.match_identifier(),
+            Kind::Command => self.match_fn_chain(),
+            Kind::Let => self.match_var_declaration(),
+            Kind::If => self.match_if_statement(),
+            Kind::Else => self.match_else_if_statement(),
+            Kind::While => self.match_while_statement(),
+            Kind::Comment => None,
             _ => {
                 println!(
                     "Unknown expression: {:#?}",
@@ -53,7 +55,7 @@ impl Parser {
         self.index += 1;
     }
 
-    fn match_token(&self, kind: TokenKind) -> Option<&Token> {
+    fn match_token(&self, kind: Kind) -> Option<&Token> {
         if self.get_token()?.kind == kind {
             self.get_token()
         } else {
@@ -61,7 +63,7 @@ impl Parser {
         }
     }
 
-    fn peek_token(&self, kind: TokenKind) -> Option<&Token> {
+    fn peek_token(&self, kind: Kind) -> Option<&Token> {
         let token = self.tokens.get(self.index + 1)?;
         if token.kind == kind {
             Some(token)
@@ -70,7 +72,7 @@ impl Parser {
         }
     }
 
-    fn consume_token(&mut self, kind: TokenKind) -> Option<Token> {
+    fn consume_token(&mut self, kind: Kind) -> Option<Token> {
         match self.match_token(kind) {
             Some(token) => {
                 let token = token.clone();
@@ -81,9 +83,9 @@ impl Parser {
         }
     }
 
-    fn consume_token_of_multiple_kinds(&mut self, valid_kinds: &[TokenKind]) -> Option<Token> {
+    fn consume_token_of_multiple_kinds(&mut self, valid_kinds: &[Kind]) -> Option<Token> {
         for kind in valid_kinds {
-            if let Some(token) = self.consume_token(kind.to_owned()) {
+            if let Some(token) = self.consume_token(*kind) {
                 return Some(token);
             }
         }
@@ -92,19 +94,18 @@ impl Parser {
     }
 
     fn match_value_expr(&mut self) -> Option<Expression> {
-        let value =
-            self.consume_token_of_multiple_kinds(&[TokenKind::Number, TokenKind::Identifier])?;
+        let value = self.consume_token_of_multiple_kinds(&[Kind::Number, Kind::Identifier])?;
         Some(Expression::Token(TokenExpr { value }))
     }
 
     fn match_arithmetic_expr(&mut self) -> Option<Expression> {
         let lhs = self.match_value_expr().or_else(|| {
-            self.consume_token(TokenKind::LeftParen);
+            self.consume_token(Kind::LeftParen);
 
             match self.match_arithmetic_expr().unwrap() {
                 Expression::Token(value) => Some(Expression::Token(value)),
                 value => {
-                    self.consume_token(TokenKind::RightParen).unwrap();
+                    self.consume_token(Kind::RightParen).unwrap();
                     Some(Expression::Parenthesis(ParenthesisExpr {
                         value: Box::new(value),
                     }))
@@ -113,10 +114,10 @@ impl Parser {
         })?;
 
         let operator = self.consume_token_of_multiple_kinds(&[
-            TokenKind::Plus,
-            TokenKind::Minus,
-            TokenKind::Asterisk,
-            TokenKind::Slash,
+            Kind::Plus,
+            Kind::Minus,
+            Kind::Asterisk,
+            Kind::Slash,
         ]);
 
         if operator.is_none() {
@@ -143,11 +144,11 @@ impl Parser {
 
         let operator = self
             .consume_token_of_multiple_kinds(&[
-                TokenKind::Less,
-                TokenKind::LessEqual,
-                TokenKind::Greater,
-                TokenKind::GreaterEqual,
-                TokenKind::EqualEqual,
+                Kind::Less,
+                Kind::LessEqual,
+                Kind::Greater,
+                Kind::GreaterEqual,
+                Kind::EqualEqual,
             ])
             .expect("Expected operator");
 
@@ -161,34 +162,31 @@ impl Parser {
     }
 
     fn match_if_statement(&mut self) -> Option<Expression> {
-        self.consume_token(TokenKind::If)?;
+        self.consume_token(Kind::If)?;
 
-        self.consume_token(TokenKind::LeftParen)
+        self.consume_token(Kind::LeftParen)
             .expect("Expected ( after if keyword");
 
         let condition = self.match_conditional_expr().unwrap();
 
-        self.consume_token(TokenKind::RightParen)
+        self.consume_token(Kind::RightParen)
             .expect("Expected ( after if keyword");
 
-        self.consume_token(TokenKind::LeftBracket)
+        self.consume_token(Kind::LeftBracket)
             .expect("Expected { after if (...) keyword");
 
         let mut body = Vec::new();
 
         loop {
             match self.get_token().unwrap().kind {
-                TokenKind::RightBracket => break,
-                _ => body.push(Box::new(self.seek_expression().unwrap())),
+                Kind::RightBracket => break,
+                _ => body.push(self.seek_expression().unwrap()),
             }
         }
 
-        self.consume_token(TokenKind::RightBracket)
-            .expect("Expected }");
+        self.consume_token(Kind::RightBracket).expect("Expected }");
 
-        let branching = self
-            .match_else_if_statement()
-            .and_then(|val| Some(Box::new(val)));
+        let branching = self.match_else_if_statement().map(Box::new);
 
         Some(Expression::IfStatement(IfStatementExpr {
             condition: Box::new(condition),
@@ -198,10 +196,10 @@ impl Parser {
     }
 
     fn match_else_if_statement(&mut self) -> Option<Expression> {
-        self.consume_token(TokenKind::Else)?;
+        self.consume_token(Kind::Else)?;
 
-        match self.match_token(TokenKind::If) {
-            Some(_) => match self.match_if_statement().unwrap() {
+        if self.match_token(Kind::If).is_some() {
+            match self.match_if_statement().unwrap() {
                 Expression::IfStatement(IfStatementExpr {
                     condition,
                     body,
@@ -212,50 +210,47 @@ impl Parser {
                     branching,
                 })),
                 _ => todo!(),
-            },
-            None => {
-                self.consume_token(TokenKind::LeftBracket)
-                    .expect("Expected { after else keyword");
-
-                let mut body = Vec::new();
-
-                loop {
-                    match self.get_token().unwrap().kind {
-                        TokenKind::RightBracket => break,
-                        _ => body.push(Box::new(self.seek_expression().unwrap())),
-                    }
-                }
-
-                Some(Expression::ElseStatement(ElseStatementExpr { body }))
             }
+        } else {
+            self.consume_token(Kind::LeftBracket)
+                .expect("Expected { after else keyword");
+
+            let mut body = Vec::new();
+
+            loop {
+                match self.get_token().unwrap().kind {
+                    Kind::RightBracket => break,
+                    _ => body.push(self.seek_expression().unwrap()),
+                }
+            }
+
+            Some(Expression::ElseStatement(ElseStatementExpr { body }))
         }
     }
 
     fn match_while_statement(&mut self) -> Option<Expression> {
-        self.consume_token(TokenKind::While)?;
+        self.consume_token(Kind::While)?;
 
-        self.consume_token(TokenKind::LeftParen)
+        self.consume_token(Kind::LeftParen)
             .expect("Expected ( after for keyword");
 
         let condition = self.match_conditional_expr().unwrap();
 
-        self.consume_token(TokenKind::RightParen)
-            .expect("Expected )");
+        self.consume_token(Kind::RightParen).expect("Expected )");
 
-        self.consume_token(TokenKind::LeftBracket)
+        self.consume_token(Kind::LeftBracket)
             .expect("Expected { after while (...) keyword");
 
         let mut body = Vec::new();
 
         loop {
             match self.get_token().unwrap().kind {
-                TokenKind::RightBracket => break,
-                _ => body.push(Box::new(self.seek_expression().unwrap())),
+                Kind::RightBracket => break,
+                _ => body.push(self.seek_expression().unwrap()),
             }
         }
 
-        self.consume_token(TokenKind::RightBracket)
-            .expect("Expected }");
+        self.consume_token(Kind::RightBracket).expect("Expected }");
 
         Some(Expression::WhileStatement(WhileStatementExpr {
             condition: Box::new(condition),
@@ -264,8 +259,8 @@ impl Parser {
     }
 
     fn match_var_assignment(&mut self) -> Option<Expression> {
-        let name = self.consume_token(TokenKind::Identifier)?;
-        self.consume_token(TokenKind::Equal);
+        let name = self.consume_token(Kind::Identifier)?;
+        self.consume_token(Kind::Equal);
 
         let value = self
             .match_arithmetic_expr()
@@ -278,7 +273,7 @@ impl Parser {
     }
 
     fn match_var_declaration(&mut self) -> Option<Expression> {
-        self.consume_token(TokenKind::Let);
+        self.consume_token(Kind::Let);
         let assignment = self.match_var_assignment().unwrap();
 
         match assignment {
@@ -293,7 +288,7 @@ impl Parser {
     }
 
     fn match_identifier(&mut self) -> Option<Expression> {
-        if self.peek_token(TokenKind::Equal).is_some() {
+        if self.peek_token(Kind::Equal).is_some() {
             self.match_var_assignment()
         } else {
             self.match_fn_chain()
@@ -305,7 +300,7 @@ impl Parser {
 
         loop {
             invocations.push(self.match_fn_call());
-            if let None = self.consume_token(TokenKind::Period) {
+            if self.consume_token(Kind::Period).is_none() {
                 break;
             }
         }
@@ -315,42 +310,40 @@ impl Parser {
 
     fn match_fn_call(&mut self) -> Expression {
         let name = self
-            .consume_token_of_multiple_kinds(&[TokenKind::Identifier, TokenKind::Command])
+            .consume_token_of_multiple_kinds(&[Kind::Identifier, Kind::Command])
             .expect("Missing function identifier");
 
-        self.consume_token(TokenKind::LeftParen)
+        self.consume_token(Kind::LeftParen)
             .expect("Missing ( after identifier ");
 
         let args = self.match_fn_arguments();
 
-        self.consume_token(TokenKind::RightParen)
+        self.consume_token(Kind::RightParen)
             .expect("Missing ) after parameters list");
 
         match name.kind {
-            TokenKind::Identifier => Expression::FnCall(FnCall { name, args }),
-            TokenKind::Command => Expression::CmdCall(CmdCall { name, args }),
+            Kind::Identifier => Expression::FnCall(FnCall { name, args }),
+            Kind::Command => Expression::CmdCall(CmdCall { name, args }),
             _ => panic!("Invalid match_fn_call invocation with {:?}", name),
         }
     }
 
-    fn match_fn_arguments(&mut self) -> Vec<Box<Expression>> {
+    fn match_fn_arguments(&mut self) -> Vec<Expression> {
         let mut args = Vec::new();
 
         loop {
-            if let Some(arg) = self.consume_token_of_multiple_kinds(&[
-                TokenKind::String,
-                TokenKind::RawString,
-                TokenKind::Option,
-            ]) {
-                args.push(Box::new(Expression::Token(TokenExpr { value: arg })));
+            if let Some(arg) =
+                self.consume_token_of_multiple_kinds(&[Kind::String, Kind::RawString, Kind::Option])
+            {
+                args.push(Expression::Token(TokenExpr { value: arg }));
             } else {
                 match self.match_arithmetic_expr() {
-                    Some(expr) => args.push(Box::new(expr)),
+                    Some(expr) => args.push(expr),
                     None => break,
                 }
             }
 
-            if let None = self.consume_token(TokenKind::Coma) {
+            if self.consume_token(Kind::Coma).is_none() {
                 break;
             }
         }

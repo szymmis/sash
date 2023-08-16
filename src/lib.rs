@@ -1,3 +1,5 @@
+#![warn(clippy::pedantic)]
+#![allow(clippy::must_use_candidate, clippy::missing_panics_doc)]
 pub mod expression;
 pub mod lexer;
 pub mod parser;
@@ -19,11 +21,11 @@ pub struct Script {
 impl Script {
     pub fn from_file(path: &str) -> Self {
         let input = read_to_string(path).expect("Cannot open source file");
-        Script::from_string(input)
+        Script::from_string(&input)
     }
 
-    pub fn from_string(input: String) -> Self {
-        let mut lexer = Lexer::from_string(input.as_str());
+    pub fn from_string(input: &str) -> Self {
+        let mut lexer = Lexer::from_string(input);
         let tokens = lexer.parse();
 
         dbg!(&tokens);
@@ -40,7 +42,7 @@ impl Script {
     }
 
     pub fn debug(&self) {
-        println!("{:#?} {:#?}", self.tokens, self.expressions)
+        println!("{:#?} {:#?}", self.tokens, self.expressions);
     }
 
     pub fn get_code(&self) -> String {

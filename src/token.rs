@@ -1,5 +1,5 @@
-#[derive(Debug, PartialEq, Clone)]
-pub enum TokenKind {
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum Kind {
     Let,
     If,
     While,
@@ -31,8 +31,8 @@ pub enum TokenKind {
     Option,
 }
 
-impl TokenKind {
-    fn from_char(char: &char) -> Option<Self> {
+impl Kind {
+    fn from_char(char: char) -> Option<Self> {
         match char {
             '(' => Some(Self::LeftParen),
             ')' => Some(Self::RightParen),
@@ -62,35 +62,35 @@ impl TokenKind {
 #[derive(Debug, Clone)]
 pub struct Token {
     pub lexeme: String,
-    pub kind: TokenKind,
+    pub kind: Kind,
 }
 
 impl Token {
     pub fn write(&self) -> String {
         match self.kind {
-            TokenKind::String => format!("\"{}\"", self.lexeme),
-            TokenKind::Identifier => format!("${}", self.lexeme),
-            TokenKind::Less => "-lt".into(),
-            TokenKind::LessEqual => "-lte".into(),
-            TokenKind::Greater => "-gt".into(),
-            TokenKind::GreaterEqual => "-gte".into(),
-            TokenKind::EqualEqual => "-eq".into(),
-            TokenKind::NotEqual => "-ne".into(),
-            _ => self.lexeme.to_owned(),
+            Kind::String => format!("\"{}\"", self.lexeme),
+            Kind::Identifier => format!("${}", self.lexeme),
+            Kind::Less => "-lt".into(),
+            Kind::LessEqual => "-lte".into(),
+            Kind::Greater => "-gt".into(),
+            Kind::GreaterEqual => "-gte".into(),
+            Kind::EqualEqual => "-eq".into(),
+            Kind::NotEqual => "-ne".into(),
+            _ => self.lexeme.clone(),
         }
     }
 
     pub fn from_char(char: char) -> Option<Self> {
         Some(Token {
             lexeme: char.into(),
-            kind: TokenKind::from_char(&char)?,
+            kind: Kind::from_char(char)?,
         })
     }
 
     pub fn from_keyword(str: &str) -> Option<Self> {
         Some(Token {
             lexeme: str.into(),
-            kind: TokenKind::from_keyword(&str)?,
+            kind: Kind::from_keyword(str)?,
         })
     }
 }

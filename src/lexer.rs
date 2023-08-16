@@ -1,4 +1,4 @@
-use crate::token::{Token, TokenKind};
+use crate::token::{Kind, Token};
 
 pub struct Lexer {
     index: usize,
@@ -7,6 +7,7 @@ pub struct Lexer {
     column_counter: usize,
 }
 
+#[allow(clippy::unnecessary_wraps)]
 impl Lexer {
     pub fn from_string(input: &str) -> Self {
         Lexer {
@@ -62,7 +63,7 @@ impl Lexer {
     }
 
     fn consume_any_char(&mut self) -> Option<char> {
-        let char = self.get_char().cloned();
+        let char = self.get_char().copied();
         self.skip_char();
         char
     }
@@ -78,22 +79,17 @@ impl Lexer {
     where
         F: Fn(&char) -> bool,
     {
-        let start = self.index.clone();
+        let start = self.index;
 
-        loop {
-            match self.get_char() {
-                Some(char) => {
-                    if f(char) {
-                        self.consume_any_char();
-                    } else {
-                        break;
-                    }
-                }
-                None => break,
+        while let Some(char) = self.get_char() {
+            if f(char) {
+                self.consume_any_char();
+            } else {
+                break;
             }
         }
 
-        Some(self.chars[start..self.index].into_iter().collect())
+        Some(self.chars[start..self.index].iter().collect())
     }
 
     fn consume_lexeme_delimited(&mut self, char: char) -> Option<String> {
@@ -109,12 +105,12 @@ impl Lexer {
                 if self.consume_char('=').is_some() {
                     Some(Token {
                         lexeme: "==".into(),
-                        kind: TokenKind::EqualEqual,
+                        kind: Kind::EqualEqual,
                     })
                 } else {
                     Some(Token {
                         lexeme: '='.into(),
-                        kind: TokenKind::Equal,
+                        kind: Kind::Equal,
                     })
                 }
             }
@@ -122,12 +118,12 @@ impl Lexer {
                 if self.consume_char('=').is_some() {
                     Some(Token {
                         lexeme: "<=".into(),
-                        kind: TokenKind::LessEqual,
+                        kind: Kind::LessEqual,
                     })
                 } else {
                     Some(Token {
                         lexeme: '<'.into(),
-                        kind: TokenKind::Less,
+                        kind: Kind::Less,
                     })
                 }
             }
@@ -135,12 +131,12 @@ impl Lexer {
                 if self.consume_char('=').is_some() {
                     Some(Token {
                         lexeme: ">=".into(),
-                        kind: TokenKind::GreaterEqual,
+                        kind: Kind::GreaterEqual,
                     })
                 } else {
                     Some(Token {
                         lexeme: '>'.into(),
-                        kind: TokenKind::Greater,
+                        kind: Kind::Greater,
                     })
                 }
             }
@@ -148,12 +144,12 @@ impl Lexer {
                 if self.consume_char('=').is_some() {
                     Some(Token {
                         lexeme: "!=".into(),
-                        kind: TokenKind::NotEqual,
+                        kind: Kind::NotEqual,
                     })
                 } else {
                     Some(Token {
                         lexeme: '!'.into(),
-                        kind: TokenKind::Not,
+                        kind: Kind::Not,
                     })
                 }
             }
@@ -174,7 +170,8 @@ impl Lexer {
         None
     }
 
-    fn match_whitespace(&mut self) -> Option<Token> {
+    #[allow(clippy::unused_self)]
+    fn match_whitespace(&self) -> Option<Token> {
         None
     }
 
@@ -185,7 +182,7 @@ impl Lexer {
 
         Some(Token {
             lexeme,
-            kind: TokenKind::Comment,
+            kind: Kind::Comment,
         })
     }
 
@@ -197,8 +194,8 @@ impl Lexer {
         Token::from_keyword(&lexeme).or(Some(Token {
             lexeme,
             kind: match self.consume_char('!') {
-                Some(_) => TokenKind::Command,
-                None => TokenKind::Identifier,
+                Some(_) => Kind::Command,
+                None => Kind::Identifier,
             },
         }))
     }
@@ -210,7 +207,7 @@ impl Lexer {
 
         Some(Token {
             lexeme,
-            kind: TokenKind::String,
+            kind: Kind::String,
         })
     }
 
@@ -221,7 +218,7 @@ impl Lexer {
 
         Some(Token {
             lexeme,
-            kind: TokenKind::RawString,
+            kind: Kind::RawString,
         })
     }
 
@@ -232,7 +229,7 @@ impl Lexer {
 
         Some(Token {
             lexeme,
-            kind: TokenKind::Number,
+            kind: Kind::Number,
         })
     }
 
@@ -244,12 +241,12 @@ impl Lexer {
         if lexeme == "-" {
             Some(Token {
                 lexeme: '-'.into(),
-                kind: TokenKind::Minus,
+                kind: Kind::Minus,
             })
         } else {
             Some(Token {
                 lexeme,
-                kind: TokenKind::Option,
+                kind: Kind::Option,
             })
         }
     }

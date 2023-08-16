@@ -1,3 +1,4 @@
+#![warn(clippy::pedantic)]
 extern crate sash_lang;
 use sash_lang::Script;
 
@@ -13,13 +14,12 @@ fn main() {
 
     let code = Script::from_file(&args.input_filename);
 
-    match args.output_filename {
-        Some(path) => code.write_file(&path),
-        None => {
-            print!("------ generated code ------\n{}", code.get_code());
-            println!("--------- output ----------");
-            code.interpret();
-        }
+    if let Some(path) = args.output_filename {
+        code.write_file(&path);
+    } else {
+        print!("------ generated code ------\n{}", code.get_code());
+        println!("--------- output ----------");
+        code.interpret();
     }
 }
 
@@ -29,7 +29,7 @@ fn parse_args() -> Args {
     let input_filename = args
         .get(1)
         .expect("You need to pass filename as an argument!")
-        .to_owned();
+        .clone();
 
     let output_filename = args.get(2).cloned();
 
