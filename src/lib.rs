@@ -8,6 +8,7 @@ pub mod token;
 use std::{
     fmt::Write,
     fs::{read_to_string, File},
+    os::unix::process::CommandExt,
     process::Command,
 };
 
@@ -62,9 +63,6 @@ impl Script {
     }
 
     pub fn interpret(&self) {
-        Command::new("bash")
-            .args(["-c", self.get_code().as_str()])
-            .spawn()
-            .unwrap();
+        Command::new("bash").args(["-c", &self.get_code()]).exec();
     }
 }
