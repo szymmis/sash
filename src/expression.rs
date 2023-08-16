@@ -4,7 +4,7 @@ use crate::token::Token;
 
 #[derive(Debug, Clone)]
 pub enum Expression {
-    Token(TokenExpr),
+    Value(ValueExpr),
     Arithmetic(ArithmeticExpr),
     Parenthesis(ParenthesisExpr),
     Condition(ConditionExpr),
@@ -22,7 +22,7 @@ pub enum Expression {
 impl Expression {
     pub fn write(&self) -> String {
         match self {
-            Self::Token(expr) => expr.value.write().to_string(),
+            Self::Value(expr) => expr.value.write(),
             Self::Arithmetic(expr) => expr.write(),
             Self::Parenthesis(expr) => expr.write(),
             Self::Condition(expr) => expr.write(),
@@ -113,7 +113,7 @@ fn get_args_as_string(args: &[Expression]) -> String {
 }
 
 #[derive(Debug, Clone)]
-pub struct TokenExpr {
+pub struct ValueExpr {
     pub value: Token,
 }
 
@@ -152,7 +152,15 @@ pub struct VarAssignmentExpr {
 
 impl Expr for VarAssignmentExpr {
     fn write(&self) -> String {
-        format!("{}={}", self.name.lexeme, self.value.write())
+        format!(
+            "{}={}",
+            self.name.lexeme,
+            match *self.value.clone() {
+                Expression::FnCall(fn_call) => format!("\"$({})\"", fn_call.write()),
+                Expression::CmdCall(fn_call) => format!("\"$({})\"", fn_call.write()),
+                _ => self.value.write(),
+            }
+        )
     }
 }
 
@@ -164,7 +172,15 @@ pub struct VarDeclarationExpr {
 
 impl Expr for VarDeclarationExpr {
     fn write(&self) -> String {
-        format!("{}={}", self.name.lexeme, self.value.write())
+        format!(
+            "{}={}",
+            self.name.lexeme,
+            match *self.value.clone() {
+                Expression::FnCall(fn_call) => format!("\"$({})\"", fn_call.write()),
+                Expression::CmdCall(fn_call) => format!("\"$({})\"", fn_call.write()),
+                _ => self.value.write(),
+            }
+        )
     }
 }
 

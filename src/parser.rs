@@ -93,21 +93,31 @@ impl Parser {
         None
     }
 
-    fn match_value_expr(&mut self) -> Option<Expression> {
+    fn match_evaluable_expression(&mut self) -> Option<Expression> {
+        if let Some(expression) = self.match_arithmetic_expr() {
+            Some(expression)
+        } else if let Some(token) = self.consume_token(Kind::String) {
+            Some(Expression::Value(ValueExpr { value: token }))
+        } else {
+            self.match_fn_call()
+        }
+    }
+
+    fn match_value(&mut self) -> Option<Expression> {
         let value = self.consume_token_of_multiple_kinds(&[Kind::Number, Kind::Identifier])?;
-        Some(Expression::Token(TokenExpr { value }))
+        Some(Expression::Value(ValueExpr { value }))
     }
 
     fn match_arithmetic_expr(&mut self) -> Option<Expression> {
-        let lhs = self.match_value_expr().or_else(|| {
-            self.consume_token(Kind::LeftParen);
+        let lhs = self.match_value().or_else(|| {
+            self.consume_token(Kind::LeftParen)?;
 
-            match self.match_arithmetic_expr().unwrap() {
-                Expression::Token(value) => Some(Expression::Token(value)),
-                value => {
+            match self.match_arithmetic_expr()? {
+                Expression::Value(value) => Some(Expression::Value(value)),
+                expression => {
                     self.consume_token(Kind::RightParen).unwrap();
                     Some(Expression::Parenthesis(ParenthesisExpr {
-                        value: Box::new(value),
+                        value: Box::new(expression),
                     }))
                 }
             }
@@ -133,7 +143,7 @@ impl Parser {
                 rhs: Box::new(rhs),
             })),
             None => panic!(
-                "Syntax error: Expected value after operator {}",
+                "Syntax error: Expected numeric literal or variable identifier after operator {}",
                 operator.write()
             ),
         }
@@ -161,6 +171,27 @@ impl Parser {
         }))
     }
 
+    fn match_statement_body(&mut self) -> Vec<Expression> {
+        self.consume_token(Kind::LeftBracket).expect("Expected {");
+
+        let mut body = Vec::new();
+
+        loop {
+            match self.get_token().unwrap().kind {
+                Kind::RightBracket => break,
+                Kind::Comment => self.skip_token(),
+                _ => body.push(match self.seek_expression() {
+                    Some(expression) => expression,
+                    None => break,
+                }),
+            }
+        }
+
+        self.consume_token(Kind::RightBracket).expect("Expected }");
+
+        body
+    }
+
     fn match_if_statement(&mut self) -> Option<Expression> {
         self.consume_token(Kind::If)?;
 
@@ -172,19 +203,7 @@ impl Parser {
         self.consume_token(Kind::RightParen)
             .expect("Expected ( after if keyword");
 
-        self.consume_token(Kind::LeftBracket)
-            .expect("Expected { after if (...) keyword");
-
-        let mut body = Vec::new();
-
-        loop {
-            match self.get_token().unwrap().kind {
-                Kind::RightBracket => break,
-                _ => body.push(self.seek_expression().unwrap()),
-            }
-        }
-
-        self.consume_token(Kind::RightBracket).expect("Expected }");
+        let body = self.match_statement_body();
 
         let branching = self.match_else_if_statement().map(Box::new);
 
@@ -212,18 +231,7 @@ impl Parser {
                 _ => todo!(),
             }
         } else {
-            self.consume_token(Kind::LeftBracket)
-                .expect("Expected { after else keyword");
-
-            let mut body = Vec::new();
-
-            loop {
-                match self.get_token().unwrap().kind {
-                    Kind::RightBracket => break,
-                    _ => body.push(self.seek_expression().unwrap()),
-                }
-            }
-
+            let body = self.match_statement_body();
             Some(Expression::ElseStatement(ElseStatementExpr { body }))
         }
     }
@@ -238,19 +246,7 @@ impl Parser {
 
         self.consume_token(Kind::RightParen).expect("Expected )");
 
-        self.consume_token(Kind::LeftBracket)
-            .expect("Expected { after while (...) keyword");
-
-        let mut body = Vec::new();
-
-        loop {
-            match self.get_token().unwrap().kind {
-                Kind::RightBracket => break,
-                _ => body.push(self.seek_expression().unwrap()),
-            }
-        }
-
-        self.consume_token(Kind::RightBracket).expect("Expected }");
+        let body = self.match_statement_body();
 
         Some(Expression::WhileStatement(WhileStatementExpr {
             condition: Box::new(condition),
@@ -263,8 +259,8 @@ impl Parser {
         self.consume_token(Kind::Equal);
 
         let value = self
-            .match_arithmetic_expr()
-            .expect("Expected expression after let _ =");
+            .match_evaluable_expression()
+            .expect("Expected evaluable expression after let _ =");
 
         Some(Expression::VarAssignment(VarAssignmentExpr {
             name,
@@ -299,7 +295,7 @@ impl Parser {
         let mut invocations = Vec::new();
 
         loop {
-            invocations.push(self.match_fn_call());
+            invocations.push(self.match_fn_call()?);
             if self.consume_token(Kind::Period).is_none() {
                 break;
             }
@@ -308,10 +304,8 @@ impl Parser {
         Some(Expression::FnChain(FnChain { invocations }))
     }
 
-    fn match_fn_call(&mut self) -> Expression {
-        let name = self
-            .consume_token_of_multiple_kinds(&[Kind::Identifier, Kind::Command])
-            .expect("Missing function identifier");
+    fn match_fn_call(&mut self) -> Option<Expression> {
+        let name = self.consume_token_of_multiple_kinds(&[Kind::Identifier, Kind::Command])?;
 
         self.consume_token(Kind::LeftParen)
             .expect("Missing ( after identifier ");
@@ -322,9 +316,9 @@ impl Parser {
             .expect("Missing ) after parameters list");
 
         match name.kind {
-            Kind::Identifier => Expression::FnCall(FnCall { name, args }),
-            Kind::Command => Expression::CmdCall(CmdCall { name, args }),
-            _ => panic!("Invalid match_fn_call invocation with {:?}", name),
+            Kind::Identifier => Some(Expression::FnCall(FnCall { name, args })),
+            Kind::Command => Some(Expression::CmdCall(CmdCall { name, args })),
+            _ => None,
         }
     }
 
@@ -335,7 +329,7 @@ impl Parser {
             if let Some(arg) =
                 self.consume_token_of_multiple_kinds(&[Kind::String, Kind::RawString, Kind::Option])
             {
-                args.push(Expression::Token(TokenExpr { value: arg }));
+                args.push(Expression::Value(ValueExpr { value: arg }));
             } else {
                 match self.match_arithmetic_expr() {
                     Some(expr) => args.push(expr),
