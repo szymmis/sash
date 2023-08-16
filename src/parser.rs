@@ -93,6 +93,16 @@ impl Parser {
         None
     }
 
+    fn consume_variable_identifier(&mut self) -> Option<Token> {
+        if self.match_token(Kind::Identifier).is_some()
+            && self.peek_token(Kind::LeftParen).is_none()
+        {
+            Some(self.consume_token(Kind::Identifier)?)
+        } else {
+            None
+        }
+    }
+
     fn match_evaluable_expression(&mut self) -> Option<Expression> {
         if let Some(expression) = self.match_arithmetic_expr() {
             Some(expression)
@@ -104,8 +114,13 @@ impl Parser {
     }
 
     fn match_value(&mut self) -> Option<Expression> {
-        let value = self.consume_token_of_multiple_kinds(&[Kind::Number, Kind::Identifier])?;
-        Some(Expression::Value(ValueExpr { value }))
+        if let Some(token) = self.consume_token(Kind::Number) {
+            Some(Expression::Value(ValueExpr { value: token }))
+        } else {
+            Some(Expression::Value(ValueExpr {
+                value: self.consume_variable_identifier()?,
+            }))
+        }
     }
 
     fn match_arithmetic_expr(&mut self) -> Option<Expression> {
@@ -315,11 +330,11 @@ impl Parser {
         self.consume_token(Kind::RightParen)
             .expect("Missing ) after parameters list");
 
-        match name.kind {
-            Kind::Identifier => Some(Expression::FnCall(FnCall { name, args })),
-            Kind::Command => Some(Expression::CmdCall(CmdCall { name, args })),
-            _ => None,
-        }
+        Some(Expression::FnCall(FnCall {
+            name: name.clone(),
+            args,
+            command: matches!(name.kind, Kind::Command),
+        }))
     }
 
     fn match_fn_arguments(&mut self) -> Vec<Expression> {
@@ -331,7 +346,7 @@ impl Parser {
             {
                 args.push(Expression::Value(ValueExpr { value: arg }));
             } else {
-                match self.match_arithmetic_expr() {
+                match self.match_arithmetic_expr().or(self.match_fn_call()) {
                     Some(expr) => args.push(expr),
                     None => break,
                 }

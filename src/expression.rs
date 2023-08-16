@@ -1,6 +1,9 @@
 use std::fmt::Write;
 
-use crate::token::Token;
+use crate::{
+    formatter,
+    token::{Kind, Token},
+};
 
 #[derive(Debug, Clone)]
 pub enum Expression {
@@ -9,7 +12,6 @@ pub enum Expression {
     Parenthesis(ParenthesisExpr),
     Condition(ConditionExpr),
     FnCall(FnCall),
-    CmdCall(CmdCall),
     FnChain(FnChain),
     VarAssignment(VarAssignmentExpr),
     VarDeclaration(VarDeclarationExpr),
@@ -27,7 +29,6 @@ impl Expression {
             Self::Parenthesis(expr) => expr.write(),
             Self::Condition(expr) => expr.write(),
             Self::FnCall(fn_call) => fn_call.write(),
-            Self::CmdCall(cmd_call) => cmd_call.write(),
             Self::FnChain(fn_chain) => fn_chain.write(),
             Self::VarAssignment(expr) => expr.write(),
             Self::VarDeclaration(expr) => expr.write(),
@@ -47,31 +48,37 @@ trait Expr {
 pub struct FnCall {
     pub name: Token,
     pub args: Vec<Expression>,
+    pub command: bool,
 }
 
 impl Expr for FnCall {
     fn write(&self) -> String {
-        let args = get_args_as_string(&self.args);
+        let args_string = formatter::get_args_as_string(&self.args);
 
-        match self.name.lexeme.as_str() {
-            "print" => format!("echo {args}"),
-            "compress" => format!("tar -caf {args}"),
-            "decompress" => format!("tar -xf {args}"),
-            "ls_archive" => format!("tar -tvf {args}"),
-            _ => panic!("Build-in function \"{}\" not supported!", self.name.lexeme),
+        if self.command {
+            format!("{} {}", self.name.write(), args_string)
+        } else {
+            match self.name.lexeme.as_str() {
+                "print" => format!("echo -e {args_string}"),
+                "compress" => format!("tar -caf {args_string}"),
+                "decompress" => format!("tar -xf {args_string}"),
+                "ls_archive" => format!("tar -tvf {args_string}"),
+                "red" | "green" | "yellow" | "blue" | "magenta" | "cyan" => {
+                    match self.args.get(0).unwrap() {
+                        Expression::Value(ValueExpr { value }) => match value.kind {
+                            Kind::String => {
+                                formatter::colorize_string(&self.name.lexeme, &value.lexeme)
+                            }
+                            _ => formatter::colorize_string(&self.name.lexeme, &value.write()),
+                        },
+                        _ => {
+                            panic!("Color functions can only take value expression as an argument")
+                        }
+                    }
+                }
+                _ => panic!("Build-in function \"{}\" not supported!", self.name.lexeme),
+            }
         }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct CmdCall {
-    pub name: Token,
-    pub args: Vec<Expression>,
-}
-
-impl Expr for CmdCall {
-    fn write(&self) -> String {
-        format!("{} {}", self.name.lexeme, get_args_as_string(&self.args))
     }
 }
 
@@ -94,22 +101,6 @@ impl Expr for FnChain {
 
         output
     }
-}
-
-fn get_args_as_string(args: &[Expression]) -> String {
-    let mut arguments_string = String::new();
-
-    let mut iter = args.iter().peekable();
-
-    while let Some(arg) = iter.next() {
-        arguments_string.write_str(&arg.write()).unwrap();
-
-        if iter.peek().is_some() {
-            arguments_string.write_str(" ").unwrap();
-        }
-    }
-
-    arguments_string
 }
 
 #[derive(Debug, Clone)]
@@ -157,7 +148,6 @@ impl Expr for VarAssignmentExpr {
             self.name.lexeme,
             match *self.value.clone() {
                 Expression::FnCall(fn_call) => format!("\"$({})\"", fn_call.write()),
-                Expression::CmdCall(fn_call) => format!("\"$({})\"", fn_call.write()),
                 _ => self.value.write(),
             }
         )
@@ -177,7 +167,6 @@ impl Expr for VarDeclarationExpr {
             self.name.lexeme,
             match *self.value.clone() {
                 Expression::FnCall(fn_call) => format!("\"$({})\"", fn_call.write()),
-                Expression::CmdCall(fn_call) => format!("\"$({})\"", fn_call.write()),
                 _ => self.value.write(),
             }
         )
@@ -219,24 +208,6 @@ impl Expr for ConditionExpr {
     }
 }
 
-fn write_formatted_expressions(expressions: &[Expression]) -> String {
-    let mut output = String::new();
-
-    for expr in expressions {
-        let lines: Vec<String> = expr
-            .write()
-            .split('\n')
-            .map(|line| format!("    {line}\n"))
-            .collect();
-
-        let lines = lines.join("");
-
-        output.write_str(&lines).unwrap();
-    }
-
-    output
-}
-
 #[derive(Debug, Clone)]
 pub struct IfStatementExpr {
     pub condition: Box<Expression>,
@@ -252,7 +223,7 @@ impl Expr for IfStatementExpr {
             format!(
                 "if {}; then\n{}{}",
                 self.condition.write(),
-                write_formatted_expressions(&self.body),
+                formatter::write_formatted_expressions(&self.body),
                 match &self.branching {
                     Some(branching) => branching.write(),
                     None => "fi".into(),
@@ -277,7 +248,7 @@ impl Expr for ElifStatementExpr {
             format!(
                 "elif {}; then\n{}{}",
                 self.condition.write(),
-                write_formatted_expressions(&self.body),
+                formatter::write_formatted_expressions(&self.body),
                 match &self.branching {
                     Some(branching) => branching.write(),
                     None => "fi".into(),
@@ -297,7 +268,10 @@ impl Expr for ElseStatementExpr {
         if self.body.is_empty() {
             String::new()
         } else {
-            format!("else\n{}fi", write_formatted_expressions(&self.body))
+            format!(
+                "else\n{}fi",
+                formatter::write_formatted_expressions(&self.body)
+            )
         }
     }
 }
@@ -316,7 +290,7 @@ impl Expr for WhileStatementExpr {
             format!(
                 "while {}\ndo\n{}done",
                 self.condition.write(),
-                write_formatted_expressions(&self.body),
+                formatter::write_formatted_expressions(&self.body),
             )
         }
     }

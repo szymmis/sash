@@ -1,6 +1,7 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::must_use_candidate, clippy::missing_panics_doc)]
 pub mod expression;
+pub mod formatter;
 pub mod lexer;
 pub mod parser;
 pub mod token;
