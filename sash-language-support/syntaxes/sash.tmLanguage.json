@@ -27,7 +27,8 @@
     "strings": {
       "name": "string.quoted.double.sash",
       "begin": "\"",
-      "end": "\""
+      "end": "\"",
+      "patterns": [{ "match": "\\$[a-zA-Z]+", "name": "variable" }]
     },
     "numbers": {
       "name": "constant.numeric",
